@@ -1,0 +1,24 @@
+# entorno y cachés
+.venv/
+__pycache__/
+*.pyc
+
+# compilación (el .exe se publica en Releases)
+build/
+dist/
+
+# partidas guardadas
+partida*.json
+*.json.tmp
+*.corrupt
+
+# copias antiguas y material de referencia
+_old_tkinter/
+_v2_backup/
+_v3_backup/
+fotos referencias/
+partida*.json.bak
+partida*.json.corrupt
+partida*.json.tmp
+docs/*.png
+old/

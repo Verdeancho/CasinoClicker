@@ -1,0 +1,59 @@
+name: Build macOS
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*", "!v*-test*"]   # las versiones de prueba no hacen build de Mac
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14   # Apple Silicon (M1 y posteriores)
+            arch: arm
+          - runner: macos-15-intel   # Intel
+            arch: intel
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Dependencias
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller pillow
+
+      - name: Compilar
+        run: python -m PyInstaller --noconfirm CasinoClicker.spec
+
+      - name: Comprobar que abren todos los juegos
+        run: |
+          CASINO_SELFCHECK="$RUNNER_TEMP/check.txt" dist/CasinoClicker.app/Contents/MacOS/CasinoClicker || true
+          cat "$RUNNER_TEMP/check.txt"
+          grep -q "^OK " "$RUNNER_TEMP/check.txt"
+
+      - name: Empaquetar
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent dist/CasinoClicker.app CasinoClicker-mac-${{ matrix.arch }}.zip
+          ls -l CasinoClicker-mac-${{ matrix.arch }}.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CasinoClicker-mac-${{ matrix.arch }}
+          path: CasinoClicker-mac-${{ matrix.arch }}.zip
+
+      - name: Subir a la release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes "Build de macOS"
+          gh release upload "$GITHUB_REF_NAME" CasinoClicker-mac-${{ matrix.arch }}.zip --clobber
